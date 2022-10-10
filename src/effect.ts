@@ -1,18 +1,26 @@
 let activeEffect:ReactiveEffect
 
-export function effect(fn:Function){
-  const _effect = new  ReactiveEffect(fn)
+export function effect(fn:Function,options: any = {}){
+  const scheduler = options.scheduler
+  const _effect = new  ReactiveEffect(fn,scheduler)
   _effect.run()
+  const runner: any = _effect.run.bind(_effect)
+  runner.effect = _effect
+  return runner
 }
 
 class ReactiveEffect {
   private _fn: Function
-  constructor(fn:Function){
+  deps = []
+  constructor(fn:Function,public scheduler?){
     this._fn = fn
   }
   run() {
     activeEffect = this
     this._fn()
+  }
+  stop(){
+    cleanupEffect(this)
   }
 }
 
@@ -31,6 +39,10 @@ export function track(target, key){
   trackEffects(dep)
 }
 
+function cleanupEffect(effect){
+  effect
+}
+
 export function trackEffects(dep){
   dep.add(activeEffect)
 }
@@ -38,14 +50,16 @@ export function trackEffects(dep){
 export function trigger(target, key){
   const depsMap = targetMap.get(target)
   let dep = depsMap.get(key)
-  for(const effect of dep){
-    effect.run()
-  }
+  triggerEffects(dep)
 }
 
 export function triggerEffects(dep){
   for(const effect of dep){
-    effect.run()
+    if(effect.scheduler){
+      effect.scheduler()
+    }else{
+      effect.run()
+    }
   }
 }
 
